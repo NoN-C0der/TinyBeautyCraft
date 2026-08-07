@@ -281,27 +281,8 @@ ipcMain.handle('download-version', async (event, versionId) => {
   return { success: true };
 });
 
-ipcMain.handle('install-mod', async (event, modFile) => {
-  const modsDir = path.join(currentConfig.gameDir, 'mods');
-  if (!fs.existsSync(modsDir)) {
-    fs.mkdirSync(modsDir, { recursive: true });
-  }
-  
-  const destPath = path.join(modsDir, path.basename(modFile));
-  fs.copyFileSync(modFile, destPath);
-  
-  currentConfig.mods.push({
-    name: path.basename(modFile),
-    path: destPath,
-    installedAt: Date.now()
-  });
-  saveConfig(currentConfig);
-  
-  return { success: true, path: destPath };
-});
-
-// IPC handler for installing mods - supports both local file installation and CurseForge download
 ipcMain.handle('install-mod', async (event, installData) => {
+  // Unified handler for both local file installation and CurseForge download
   // Check if this is a local file installation (string path) or CurseForge download (object with modId)
   if (typeof installData === 'string' && (installData.endsWith('.jar') || installData.endsWith('.zip'))) {
     // Local file installation
@@ -363,6 +344,53 @@ ipcMain.handle('install-mod', async (event, installData) => {
     return { success: false, error: error.message };
   }
 });
+
+// Resource pack installation handler
+ipcMain.handle('install-resource-pack', async (event, packFile) => {
+  const resourcePacksDir = path.join(currentConfig.gameDir, 'resourcepacks');
+  if (!fs.existsSync(resourcePacksDir)) {
+    fs.mkdirSync(resourcePacksDir, { recursive: true });
+  }
+  
+  const destPath = path.join(resourcePacksDir, path.basename(packFile));
+  fs.copyFileSync(packFile, destPath);
+  
+  currentConfig.resourcePacks.push({
+    name: path.basename(packFile),
+    path: destPath,
+    installedAt: Date.now()
+  });
+  saveConfig(currentConfig);
+  
+  return { success: true, path: destPath };
+});
+
+// Open folder handler
+ipcMain.handle('open-folder', async (event, folderPath) => {
+  try {
+    await shell.openPath(folderPath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
+// Get statistics handler
+ipcMain.handle('get-stats', () => {
+  const stats = {
+    totalLaunches: currentConfig.launchHistory.length,
+    totalMods: modsData.installedMods?.length || 0,
+    totalProfiles: modsData.profiles?.length || 0,
+    totalAccounts: currentConfig.accounts?.length || 0
+  };
+  
+  // Calculate version statistics
+  if (currentConfig.launchHistory.length > 0) {
+    const versionCounts = {};
+    currentConfig.launchHistory.forEach(launch => {
+      const version = launch.version || 'unknown';
+      versionCounts[version] = (versionCounts[version] || 0) + 1;
+    });
     
     stats.favoriteVersion = Object.entries(versionCounts)
       .sort((a, b) => b[1] - a[1])[0]?.[0];
@@ -457,45 +485,6 @@ ipcMain.handle('remove-installed-mod', async (event, modId) => {
   return true;
 });
 
-ipcMain.handle('install-mod', async (event, installData) => {
-  const { modId, modName, downloadUrl, fileName, gameId, mcVersion } = installData;
-  
-  try {
-    const modsDir = path.join(currentConfig.gameDir, 'mods');
-    if (!fs.existsSync(modsDir)) {
-      fs.mkdirSync(modsDir, { recursive: true });
-    }
-    
-    const destPath = path.join(modsDir, fileName);
-    
-    // Download the file
-    await downloadFile(downloadUrl, destPath, (progress) => {
-      mainWindow.webContents.send('mod-install-progress', { modId, progress });
-    });
-    
-    // Add to installed mods
-    const modEntry = {
-      id: modId,
-      name: modName,
-      fileName,
-      path: destPath,
-      installedAt: Date.now(),
-      version: mcVersion
-    };
-    
-    const existingIndex = modsData.installedMods.findIndex(m => m.id === modId);
-    if (existingIndex >= 0) {
-      modsData.installedMods[existingIndex] = modEntry;
-    } else {
-      modsData.installedMods.push(modEntry);
-    }
-    saveModsData(modsData);
-    
-    return { success: true, path: destPath };
-  } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
 
 // Helper function to download files with progress
 function downloadFile(url, destPath, onProgress) {
@@ -584,23 +573,4 @@ ipcMain.handle('import-profile', (event, jsonData) => {
     }
     return { success: false, error: 'Invalid profile format' };
   } catch (error) {
-    return { success: false, error: error.message };
-  }
-});
-
-app.whenReady().then(createWindow);
-
-app.on('window-all-closed', () => {
-  if (mcProcess) {
-    mcProcess.kill();
-  }
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
-});
-
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
-});
+    return { success: false, error: error.mess
