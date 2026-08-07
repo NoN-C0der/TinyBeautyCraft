@@ -300,43 +300,69 @@ ipcMain.handle('install-mod', async (event, modFile) => {
   return { success: true, path: destPath };
 });
 
-ipcMain.handle('install-resource-pack', async (event, packFile) => {
-  const resourcePacksDir = path.join(currentConfig.gameDir, 'resourcepacks');
-  if (!fs.existsSync(resourcePacksDir)) {
-    fs.mkdirSync(resourcePacksDir, { recursive: true });
+// IPC handler for installing mods - supports both local file installation and CurseForge download
+ipcMain.handle('install-mod', async (event, installData) => {
+  // Check if this is a local file installation (string path) or CurseForge download (object with modId)
+  if (typeof installData === 'string' && (installData.endsWith('.jar') || installData.endsWith('.zip'))) {
+    // Local file installation
+    const modFile = installData;
+    const modsDir = path.join(currentConfig.gameDir, 'mods');
+    if (!fs.existsSync(modsDir)) {
+      fs.mkdirSync(modsDir, { recursive: true });
+    }
+    
+    const destPath = path.join(modsDir, path.basename(modFile));
+    fs.copyFileSync(modFile, destPath);
+    
+    currentConfig.mods.push({
+      name: path.basename(modFile),
+      path: destPath,
+      installedAt: Date.now()
+    });
+    saveConfig(currentConfig);
+    
+    return { success: true, path: destPath };
   }
   
-  const destPath = path.join(resourcePacksDir, path.basename(packFile));
-  fs.copyFileSync(packFile, destPath);
+  // CurseForge download installation
+  const { modId, modName, downloadUrl, fileName, gameId, mcVersion } = installData;
   
-  currentConfig.resourcePacks.push({
-    name: path.basename(packFile),
-    path: destPath,
-    installedAt: Date.now()
-  });
-  saveConfig(currentConfig);
-  
-  return { success: true, path: destPath };
-});
-
-ipcMain.handle('open-folder', (event, folderPath) => {
-  shell.openPath(folderPath);
-  return true;
-});
-
-ipcMain.handle('get-stats', () => {
-  const stats = {
-    totalLaunches: currentConfig.launchHistory.length,
-    totalPlayTime: 0,
-    favoriteVersion: null,
-    lastPlayed: null
-  };
-  
-  if (currentConfig.launchHistory.length > 0) {
-    const versionCounts = {};
-    currentConfig.launchHistory.forEach(launch => {
-      versionCounts[launch.version] = (versionCounts[launch.version] || 0) + 1;
+  try {
+    const modsDir = path.join(currentConfig.gameDir, 'mods');
+    if (!fs.existsSync(modsDir)) {
+      fs.mkdirSync(modsDir, { recursive: true });
+    }
+    
+    const destPath = path.join(modsDir, fileName);
+    
+    // Download the file
+    await downloadFile(downloadUrl, destPath, (progress) => {
+      mainWindow.webContents.send('mod-install-progress', { modId, progress });
     });
+    
+    // Add to installed mods
+    const modEntry = {
+      id: modId,
+      name: modName,
+      fileName,
+      path: destPath,
+      installedAt: Date.now(),
+      version: mcVersion
+    };
+    
+    const existingIndex = modsData.installedMods.findIndex(m => m.id === modId);
+    if (existingIndex >= 0) {
+      modsData.installedMods[existingIndex] = modEntry;
+    } else {
+      modsData.installedMods.push(modEntry);
+    }
+    saveModsData(modsData);
+    
+    return { success: true, path: destPath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
     
     stats.favoriteVersion = Object.entries(versionCounts)
       .sort((a, b) => b[1] - a[1])[0]?.[0];

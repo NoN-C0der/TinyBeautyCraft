@@ -652,7 +652,7 @@ export default function Mods() {
   // Remove installed mod
   const handleRemoveMod = async (modId) => {
     try {
-      await window.electronAPI.removeMod(modId);
+      await window.electronAPI.removeInstalledMod(modId);
       dispatch(removeInstalledMod(modId));
     } catch (error) {
       console.error('Failed to remove mod:', error);

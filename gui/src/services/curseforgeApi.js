@@ -181,7 +181,7 @@ export async function getModFileDetails(apiKey, modId, fileId) {
 export async function getDownloadUrl(apiKey, modId, fileId) {
   const endpoint = `/v1/mods/${modId}/files/${fileId}/download-url`;
   const result = await curseForgeRequest(endpoint, apiKey);
-  return result.data?.downloadUrl;
+  return result.data;
 }
 
 /**
@@ -201,7 +201,7 @@ export async function getCategories(apiKey) {
  * @returns {Promise<Array>} - List of game versions
  */
 export async function getGameVersions(apiKey) {
-  const endpoint = '/v1/versions/game/432';
+  const endpoint = '/v1/games/432/versions';
   const result = await curseForgeRequest(endpoint, apiKey);
   return result.data || [];
 }
