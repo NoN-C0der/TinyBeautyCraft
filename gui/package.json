@@ -3,13 +3,24 @@
   "version": "1.0.0",
   "description": "Tiny MC Launcher - Graphical User Interface with Electron + React + Redux",
   "main": "main.js",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "start": "electron .",
-    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && cross-env NODE_ENV=development electron .\"",
     "electron:build": "npm run build && electron-builder --win --x64",
-    "install-deps": "npm install"
+    "dist:win": "npm run electron:build",
+    "dist:win:ia32": "npm run build && electron-builder --win --ia32",
+    "dist:win:all": "npm run build && electron-builder --win --ia32 --x64",
+    "rebuild": "node-gyp rebuild || echo \"No native modules to rebuild\"",
+    "install-deps": "npm install --legacy-peer-deps",
+    "clean": "rimraf dist && rimraf node_modules/.vite",
+    "lint": "eslint . --ext .js,.jsx",
+    "format": "prettier --write .",
+    "postinstall": "npm run rebuild"
   },
   "author": "qwq672",
   "license": "MIT",
@@ -21,6 +32,9 @@
     "@reduxjs/toolkit": "^2.2.1",
     "axios": "^1.6.7",
     "chart.js": "^4.4.1",
+    "cross-env": "^7.0.3",
+    "electron-log": "^5.0.1",
+    "electron-updater": "^6.1.7",
     "framer-motion": "^11.0.5",
     "react": "^18.2.0",
     "react-chartjs-2": "^5.2.0",
@@ -34,11 +48,16 @@
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "electron": "^29.1.0",
-    "electron-builder": "^24.13.3",
-    "vite": "^5.1.4",
     "@vitejs/plugin-react": "^4.2.1",
     "concurrently": "^8.2.2",
+    "electron": "^29.1.0",
+    "electron-builder": "^24.13.3",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.34.0",
+    "node-gyp": "^10.0.1",
+    "prettier": "^3.2.5",
+    "rimraf": "^5.0.5",
+    "vite": "^5.1.4",
     "wait-on": "^7.2.0"
   },
   "build": {
@@ -51,7 +70,16 @@
       "main.js",
       "preload.js",
       "dist/**/*",
-      "package.json"
+      "package.json",
+      "!**/node_modules/.cache",
+      "!**/.vscode"
+    ],
+    "extraResources": [
+      {
+        "from": "public/",
+        "to": "public/",
+        "filter": ["**/*"]
+      }
     ],
     "win": {
       "target": [
@@ -64,7 +92,12 @@
           "arch": ["x64"]
         }
       ],
-      "icon": "public/icon.ico"
+      "icon": "public/icon.ico",
+      "publisherName": "qwq672",
+      "legalTrademarks": "Tiny MC Launcher",
+      "certificateFile": "certificate.pfx",
+      "certificatePassword": "",
+      "verifyUpdateCodeSignature": false
     },
     "portable": {
       "artifactName": "${productName}-Portable-${version}.${ext}"
@@ -72,9 +105,21 @@
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "artifactName": "${productName}-Setup-${version}.${ext}"
+      "artifactName": "${productName}-Setup-${version}.${ext}",
+      "shortcutName": "Tiny MC Launcher",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "menuCategory": "Tiny MC Launcher",
+      "uninstallDisplayName": "${productName} ${version}",
+      "license": "LICENSE.txt",
+      "deleteAppDataOnUninstall": false
     },
     "compression": "normal",
-    "removePackageScripts": true
+    "removePackageScripts": true,
+    "asar": true,
+    "asarUnpack": [],
+    "electronVersion": "29.1.0",
+    "npmRebuild": true,
+    "buildDependenciesFromSource": false
   }
 }
