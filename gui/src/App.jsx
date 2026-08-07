@@ -31,7 +31,7 @@ import {
   Notifications as NotificationsIcon
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
-import { toggleTheme, toggleSidebar, setActiveTab, addNotification } from './uiSlice';
+import { toggleTheme, toggleSidebar, setActiveTab, addNotification, openModsDialog, openAccountDialog, openSettingsDialog } from './uiSlice';
 import Home from './Home';
 import AccountsDialog from './AccountsDialog';
 import SettingsDialog from './SettingsDialog';
@@ -201,10 +201,10 @@ export default function App() {
 
   const menuItems = [
     { text: 'Home', icon: <HomeIcon />, tab: 'home' },
-    { text: 'Mods', icon: <ExtensionIcon />, tab: 'mods' },
+    { text: 'Mods', icon: <ExtensionIcon />, tab: 'mods', action: () => dispatch(openModsDialog()) },
     { text: 'Statistics', icon: <AssessmentIcon />, tab: 'stats' },
-    { text: 'Accounts', icon: <AccountIcon />, tab: 'accounts' },
-    { text: 'Settings', icon: <SettingsIcon />, tab: 'settings' }
+    { text: 'Accounts', icon: <AccountIcon />, tab: 'accounts', action: () => dispatch(openAccountDialog()) },
+    { text: 'Settings', icon: <SettingsIcon />, tab: 'settings', action: () => dispatch(openSettingsDialog()) }
   ];
 
   const drawer = (
@@ -229,7 +229,11 @@ export default function App() {
                 button
                 selected={ui.activeTab === item.tab}
                 onClick={() => {
-                  dispatch(setActiveTab(item.tab));
+                  if (item.action) {
+                    item.action();
+                  } else {
+                    dispatch(setActiveTab(item.tab));
+                  }
                   setMobileOpen(false);
                 }}
                 sx={{
@@ -410,7 +414,7 @@ export default function App() {
         </AnimatePresence>
       </Box>
 
-      {/* Dialogs */}
+      {/* Dialogs - now conditionally rendered by their own components */}
       <AccountsDialog />
       <SettingsDialog />
       <ModsDialog />

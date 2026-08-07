@@ -19,20 +19,10 @@ build/
 # Logs
 *.log
 
-# Temp files
-*.tmp
-*.swp
-
-# OS
-.DS_Store
-Thumbs.db
-
 # Python (if applicable)
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
 .Python
-venv/
-.venv/
 ```

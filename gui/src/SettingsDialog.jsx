@@ -43,6 +43,11 @@ export default function SettingsDialog() {
   const launcher = useSelector(state => state.launcher);
   const ui = useSelector(state => state.ui);
   
+  // Return null if dialog is not open
+  if (!ui.settingsDialogOpen) {
+    return null;
+  }
+  
   const [localJavaArgs, setLocalJavaArgs] = React.useState(launcher.config.javaArgs);
   const [memorySlider, setMemorySlider] = React.useState(2);
 

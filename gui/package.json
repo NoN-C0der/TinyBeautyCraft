@@ -4,8 +4,11 @@
   "description": "Tiny MC Launcher - Graphical User Interface with Electron + React + Redux",
   "main": "main.js",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
     "start": "electron .",
-    "build": "electron-builder --win --x64",
+    "electron:dev": "concurrently \"npm run dev\" \"wait-on http://localhost:5173 && NODE_ENV=development electron .\"",
+    "electron:build": "npm run build && electron-builder --win --x64",
     "install-deps": "npm install"
   },
   "author": "qwq672",
@@ -35,7 +38,8 @@
     "electron-builder": "^24.13.3",
     "vite": "^5.1.4",
     "@vitejs/plugin-react": "^4.2.1",
-    "concurrently": "^8.2.2"
+    "concurrently": "^8.2.2",
+    "wait-on": "^7.2.0"
   },
   "build": {
     "appId": "com.qwq672.tinymc",
@@ -46,8 +50,7 @@
     "files": [
       "main.js",
       "preload.js",
-      "renderer/**/*",
-      "src/**/*",
+      "dist/**/*",
       "package.json"
     ],
     "win": {

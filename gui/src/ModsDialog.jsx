@@ -99,6 +99,11 @@ export default function ModsDialog() {
   const launcher = useSelector(state => state.launcher);
   const ui = useSelector(state => state.ui);
   
+  // Return null if dialog is not open - fixes the "always visible" bug
+  if (!ui.modsDialogOpen) {
+    return null;
+  }
+  
   const [installingMods, setInstallingMods] = useState([]);
   const [installStatus, setInstallStatus] = useState(null);
 

@@ -6,6 +6,9 @@ const { spawn } = require('child_process');
 let mainWindow;
 let mcProcess = null;
 
+// Check if we're in development mode
+const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+
 // Configuration paths
 const userDataPath = app.getPath('userData');
 const configPath = path.join(userDataPath, 'config.json');
@@ -73,19 +76,21 @@ function createWindow() {
     show: false
   });
 
-  // Load the React app
-  mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+  // Load the React app - Vite integration
+  if (isDev) {
+    // In development mode, load from Vite dev server
+    mainWindow.loadURL('http://localhost:5173');
+    mainWindow.webContents.openDevTools();
+  } else {
+    // In production mode, load from built dist folder
+    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
+  }
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
     mainWindow.maximize();
   });
-
-  // Open DevTools in development
-  if (process.env.NODE_ENV === 'development') {
-    mainWindow.webContents.openDevTools();
-  }
 
   // Handle external links
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
