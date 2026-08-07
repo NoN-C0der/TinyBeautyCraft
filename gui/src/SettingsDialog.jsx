@@ -44,8 +44,8 @@ import {
 import { useDispatch, useSelector } from 'react-redux';
 import { updateJavaPath, updateJavaArgs, updateGameDir, addMod, removeMod, addResourcePack, removeResourcePack } from './launcherSlice';
 import { closeSettingsDialog } from './uiSlice';
-import { setCurseForgeApiKey, setApiKeyValidation } from '../store/modsSlice';
-import * as curseforgeApi from '../../services/curseforgeApi';
+import { setCurseForgeApiKey, setApiKeyValidation } from './store/modsSlice';
+import * as curseforgeApi from './services/curseforgeApi';
 
 export default function SettingsDialog() {
   const dispatch = useDispatch();
