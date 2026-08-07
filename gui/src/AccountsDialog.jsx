@@ -39,11 +39,6 @@ export default function AccountsDialog() {
   const launcher = useSelector(state => state.launcher);
   const ui = useSelector(state => state.ui);
   
-  // Return null if dialog is not open
-  if (!ui.accountDialogOpen) {
-    return null;
-  }
-  
   const [newUsername, setNewUsername] = React.useState('');
   const [newToken, setNewToken] = React.useState('');
 
@@ -70,6 +65,11 @@ export default function AccountsDialog() {
   const handleClose = () => {
     dispatch(closeAccountDialog());
   };
+
+  // Return null if dialog is not open - MUST be after all hooks
+  if (!ui.accountDialogOpen) {
+    return null;
+  }
 
   return (
     <Dialog

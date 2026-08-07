@@ -79,11 +79,13 @@ function createWindow() {
   // Load the React app - Vite integration
   if (isDev) {
     // In development mode, load from Vite dev server
-    mainWindow.loadURL('http://localhost:5173');
+    // Point to renderer/index.html specifically
+    mainWindow.loadURL('http://localhost:5173/renderer/index.html');
     mainWindow.webContents.openDevTools();
   } else {
-    // In production mode, load from built dist folder
-    mainWindow.loadFile(path.join(__dirname, 'dist', 'index.html'));
+    // In production mode, load from built dist/renderer/index.html
+    // Vite builds renderer/index.html to dist/renderer/index.html
+    mainWindow.loadFile(path.join(__dirname, 'dist', 'renderer', 'index.html'));
   }
 
   // Show window when ready
