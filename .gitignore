@@ -7,10 +7,6 @@ dist/
 build/
 *.js.map
 
-# Logs and temp files
-*.log
-*.tmp
-
 # Environment
 .env
 .env.local
@@ -22,18 +18,14 @@ build/
 *.swp
 *.swo
 
-# Python
+# Logs and temp files
+*.log
+*.tmp
+
+# Python (if applicable)
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Coverage
-coverage/
-htmlcov/
-.coverage
-
-# OS generated
-.DS_Store
-Thumbs.db
+.Python
 ```

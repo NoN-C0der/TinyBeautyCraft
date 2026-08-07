@@ -24,9 +24,25 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getVersions: () => ipcRenderer.invoke('get-versions'),
   downloadVersion: (versionId) => ipcRenderer.invoke('download-version', versionId),
   
-  // Mods and resource packs
-  installMod: (modFile) => ipcRenderer.invoke('install-mod', modFile),
+  // Mods and resource packs (legacy file-based)
+  installModFile: (modFile) => ipcRenderer.invoke('install-mod', modFile),
   installResourcePack: (packFile) => ipcRenderer.invoke('install-resource-pack', packFile),
+  
+  // CurseForge API
+  curseForgeRequest: (url, options) => ipcRenderer.invoke('curseforge-request', url, options),
+  
+  // Mod management (with metadata)
+  getInstalledMods: () => ipcRenderer.invoke('get-installed-mods'),
+  addInstalledMod: (mod) => ipcRenderer.invoke('add-installed-mod', mod),
+  removeInstalledMod: (modId) => ipcRenderer.invoke('remove-installed-mod', modId),
+  installMod: (installData) => ipcRenderer.invoke('install-mod', installData),
+  
+  // Profile management
+  getModProfiles: () => ipcRenderer.invoke('get-mod-profiles'),
+  saveModProfile: (profile) => ipcRenderer.invoke('save-mod-profile', profile),
+  deleteModProfile: (profileId) => ipcRenderer.invoke('delete-mod-profile', profileId),
+  exportProfile: (profileId) => ipcRenderer.invoke('export-profile', profileId),
+  importProfile: (jsonData) => ipcRenderer.invoke('import-profile', jsonData),
   
   // System
   openFolder: (folderPath) => ipcRenderer.invoke('open-folder', folderPath),
@@ -42,6 +58,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onDownloadProgress: (callback) => {
     ipcRenderer.on('download-progress', (event, data) => callback(data));
   },
+  onModInstallProgress: (callback) => {
+    ipcRenderer.on('mod-install-progress', (event, data) => callback(data));
+  },
   
   removeGameLogListener: () => {
     ipcRenderer.removeAllListeners('game-log');
@@ -51,5 +70,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeDownloadProgressListener: () => {
     ipcRenderer.removeAllListeners('download-progress');
+  },
+  removeModInstallProgressListener: () => {
+    ipcRenderer.removeAllListeners('mod-install-progress');
   }
 });

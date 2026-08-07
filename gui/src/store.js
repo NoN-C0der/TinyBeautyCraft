@@ -4,6 +4,7 @@ import storage from 'redux-persist/lib/storage';
 import launcherReducer from './launcherSlice';
 import uiReducer from './uiSlice';
 import statsReducer from './statsSlice';
+import modsReducer from './store/modsSlice';
 
 const launcherPersistConfig = {
   key: 'launcher',
@@ -17,14 +18,22 @@ const uiPersistConfig = {
   whitelist: ['theme', 'sidebarOpen', 'activeTab']
 };
 
+const modsPersistConfig = {
+  key: 'mods',
+  storage,
+  whitelist: ['curseForgeApiKey', 'installedMods', 'modProfiles', 'autoInstallDependencies']
+};
+
 const persistedLauncherReducer = persistReducer(launcherPersistConfig, launcherReducer);
 const persistedUiReducer = persistReducer(uiPersistConfig, uiReducer);
+const persistedModsReducer = persistReducer(modsPersistConfig, modsReducer);
 
 export const store = configureStore({
   reducer: {
     launcher: persistedLauncherReducer,
     ui: persistedUiReducer,
-    stats: statsReducer
+    stats: statsReducer,
+    mods: persistedModsReducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
