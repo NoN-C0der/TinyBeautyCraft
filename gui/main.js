@@ -1,6 +1,7 @@
-const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell, net } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const https = require('https');
 const { spawn } = require('child_process');
 
 let mainWindow;
@@ -13,6 +14,7 @@ const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 const userDataPath = app.getPath('userData');
 const configPath = path.join(userDataPath, 'config.json');
 const logsPath = path.join(userDataPath, 'logs');
+const modsDataPath = path.join(userDataPath, 'mods-data.json');
 
 // Ensure logs directory exists
 if (!fs.existsSync(logsPath)) {
@@ -30,7 +32,8 @@ const defaultConfig = {
   theme: 'dark',
   mods: [],
   resourcePacks: [],
-  launchHistory: []
+  launchHistory: [],
+  curseForgeApiKey: ''
 };
 
 // Load or create configuration
@@ -55,7 +58,30 @@ function saveConfig(config) {
   }
 }
 
+// Load mods data (installed mods with metadata)
+function loadModsData() {
+  try {
+    if (fs.existsSync(modsDataPath)) {
+      return JSON.parse(fs.readFileSync(modsDataPath, 'utf-8'));
+    }
+  } catch (error) {
+    console.error('Failed to load mods data:', error);
+  }
+  return { installedMods: [], profiles: [] };
+}
+
+function saveModsData(data) {
+  try {
+    fs.writeFileSync(modsDataPath, JSON.stringify(data, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Failed to save mods data:', error);
+    return false;
+  }
+}
+
 let currentConfig = loadConfig();
+let modsData = loadModsData();
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -255,25 +281,71 @@ ipcMain.handle('download-version', async (event, versionId) => {
   return { success: true };
 });
 
-ipcMain.handle('install-mod', async (event, modFile) => {
-  const modsDir = path.join(currentConfig.gameDir, 'mods');
-  if (!fs.existsSync(modsDir)) {
-    fs.mkdirSync(modsDir, { recursive: true });
+ipcMain.handle('install-mod', async (event, installData) => {
+  // Unified handler for both local file installation and CurseForge download
+  // Check if this is a local file installation (string path) or CurseForge download (object with modId)
+  if (typeof installData === 'string' && (installData.endsWith('.jar') || installData.endsWith('.zip'))) {
+    // Local file installation
+    const modFile = installData;
+    const modsDir = path.join(currentConfig.gameDir, 'mods');
+    if (!fs.existsSync(modsDir)) {
+      fs.mkdirSync(modsDir, { recursive: true });
+    }
+    
+    const destPath = path.join(modsDir, path.basename(modFile));
+    fs.copyFileSync(modFile, destPath);
+    
+    currentConfig.mods.push({
+      name: path.basename(modFile),
+      path: destPath,
+      installedAt: Date.now()
+    });
+    saveConfig(currentConfig);
+    
+    return { success: true, path: destPath };
   }
   
-  const destPath = path.join(modsDir, path.basename(modFile));
-  fs.copyFileSync(modFile, destPath);
+  // CurseForge download installation
+  const { modId, modName, downloadUrl, fileName, gameId, mcVersion } = installData;
   
-  currentConfig.mods.push({
-    name: path.basename(modFile),
-    path: destPath,
-    installedAt: Date.now()
-  });
-  saveConfig(currentConfig);
-  
-  return { success: true, path: destPath };
+  try {
+    const modsDir = path.join(currentConfig.gameDir, 'mods');
+    if (!fs.existsSync(modsDir)) {
+      fs.mkdirSync(modsDir, { recursive: true });
+    }
+    
+    const destPath = path.join(modsDir, fileName);
+    
+    // Download the file
+    await downloadFile(downloadUrl, destPath, (progress) => {
+      mainWindow.webContents.send('mod-install-progress', { modId, progress });
+    });
+    
+    // Add to installed mods
+    const modEntry = {
+      id: modId,
+      name: modName,
+      fileName,
+      path: destPath,
+      installedAt: Date.now(),
+      version: mcVersion
+    };
+    
+    const existingIndex = modsData.installedMods.findIndex(m => m.id === modId);
+    if (existingIndex >= 0) {
+      modsData.installedMods[existingIndex] = modEntry;
+    } else {
+      modsData.installedMods.push(modEntry);
+    }
+    saveModsData(modsData);
+    
+    return { success: true, path: destPath };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
 
+// Resource pack installation handler
 ipcMain.handle('install-resource-pack', async (event, packFile) => {
   const resourcePacksDir = path.join(currentConfig.gameDir, 'resourcepacks');
   if (!fs.existsSync(resourcePacksDir)) {
@@ -293,23 +365,31 @@ ipcMain.handle('install-resource-pack', async (event, packFile) => {
   return { success: true, path: destPath };
 });
 
-ipcMain.handle('open-folder', (event, folderPath) => {
-  shell.openPath(folderPath);
-  return true;
+// Open folder handler
+ipcMain.handle('open-folder', async (event, folderPath) => {
+  try {
+    await shell.openPath(folderPath);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 });
 
+// Get statistics handler
 ipcMain.handle('get-stats', () => {
   const stats = {
     totalLaunches: currentConfig.launchHistory.length,
-    totalPlayTime: 0,
-    favoriteVersion: null,
-    lastPlayed: null
+    totalMods: modsData.installedMods?.length || 0,
+    totalProfiles: modsData.profiles?.length || 0,
+    totalAccounts: currentConfig.accounts?.length || 0
   };
   
+  // Calculate version statistics
   if (currentConfig.launchHistory.length > 0) {
     const versionCounts = {};
     currentConfig.launchHistory.forEach(launch => {
-      versionCounts[launch.version] = (versionCounts[launch.version] || 0) + 1;
+      const version = launch.version || 'unknown';
+      versionCounts[version] = (versionCounts[version] || 0) + 1;
     });
     
     stats.favoriteVersion = Object.entries(versionCounts)
@@ -323,19 +403,174 @@ ipcMain.handle('get-stats', () => {
   return stats;
 });
 
-app.whenReady().then(createWindow);
+// CurseForge API handlers
+ipcMain.handle('curseforge-request', async (event, url, options) => {
+  try {
+    const request = net.request({
+      url,
+      method: options.method || 'GET',
+      headers: options.headers
+    });
 
-app.on('window-all-closed', () => {
-  if (mcProcess) {
-    mcProcess.kill();
-  }
-  if (process.platform !== 'darwin') {
-    app.quit();
+    return new Promise((resolve, reject) => {
+      let responseData = '';
+
+      request.on('response', (response) => {
+        response.on('data', (chunk) => {
+          responseData += chunk.toString();
+        });
+
+        response.on('end', () => {
+          try {
+            const data = JSON.parse(responseData);
+            if (response.statusCode >= 200 && response.statusCode < 300) {
+              resolve({ success: true, data });
+            } else {
+              resolve({ 
+                success: false, 
+                error: data.message || `HTTP ${response.statusCode}` 
+              });
+            }
+          } catch (e) {
+            resolve({ success: false, error: 'Failed to parse response' });
+          }
+        });
+      });
+
+      request.on('error', (error) => {
+        resolve({ success: false, error: error.message });
+      });
+
+      if (options.body) {
+        request.write(options.body);
+      }
+
+      request.end();
+    });
+  } catch (error) {
+    return { success: false, error: error.message };
   }
 });
 
-app.on('activate', () => {
-  if (BrowserWindow.getAllWindows().length === 0) {
-    createWindow();
-  }
+// Mod management handlers
+ipcMain.handle('get-installed-mods', () => {
+  return modsData.installedMods || [];
 });
+
+ipcMain.handle('add-installed-mod', (event, mod) => {
+  const existingIndex = modsData.installedMods.findIndex(m => m.id === mod.id);
+  if (existingIndex >= 0) {
+    modsData.installedMods[existingIndex] = mod;
+  } else {
+    modsData.installedMods.push(mod);
+  }
+  saveModsData(modsData);
+  return true;
+});
+
+ipcMain.handle('remove-installed-mod', async (event, modId) => {
+  const mod = modsData.installedMods.find(m => m.id === modId);
+  if (mod) {
+    // Remove from file system
+    const modsDir = path.join(currentConfig.gameDir, 'mods');
+    const modFile = path.join(modsDir, mod.fileName);
+    if (fs.existsSync(modFile)) {
+      fs.unlinkSync(modFile);
+    }
+    
+    // Remove from data
+    modsData.installedMods = modsData.installedMods.filter(m => m.id !== modId);
+    saveModsData(modsData);
+  }
+  return true;
+});
+
+
+// Helper function to download files with progress
+function downloadFile(url, destPath, onProgress) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath);
+    let downloadedBytes = 0;
+    let totalBytes = 0;
+    
+    const request = https.get(url, (response) => {
+      totalBytes = parseInt(response.headers['content-length'], 10);
+      
+      response.on('data', (chunk) => {
+        downloadedBytes += chunk.length;
+        if (totalBytes > 0 && onProgress) {
+          onProgress(Math.round((downloadedBytes / totalBytes) * 100));
+        }
+      });
+      
+      response.pipe(file);
+      
+      file.on('finish', () => {
+        file.close();
+        resolve();
+      });
+    });
+    
+    request.on('error', (err) => {
+      fs.unlink(destPath, () => {}); // Delete partially downloaded file
+      reject(err);
+    });
+    
+    file.on('error', (err) => {
+      fs.unlink(destPath, () => {});
+      reject(err);
+    });
+  });
+}
+
+// Profile management handlers
+ipcMain.handle('get-mod-profiles', () => {
+  return modsData.profiles || [];
+});
+
+ipcMain.handle('save-mod-profile', (event, profile) => {
+  const newProfile = {
+    ...profile,
+    id: profile.id || `profile_${Date.now()}`,
+    createdAt: Date.now()
+  };
+  
+  modsData.profiles.push(newProfile);
+  saveModsData(modsData);
+  return newProfile;
+});
+
+ipcMain.handle('delete-mod-profile', (event, profileId) => {
+  modsData.profiles = modsData.profiles.filter(p => p.id !== profileId);
+  saveModsData(modsData);
+  return true;
+});
+
+ipcMain.handle('export-profile', (event, profileId) => {
+  const profile = modsData.profiles.find(p => p.id === profileId);
+  if (!profile) {
+    return { success: false, error: 'Profile not found' };
+  }
+  
+  const exportData = {
+    profile,
+    version: '1.0',
+    exportedAt: Date.now()
+  };
+  
+  return { success: true, data: JSON.stringify(exportData, null, 2) };
+});
+
+ipcMain.handle('import-profile', (event, jsonData) => {
+  try {
+    const imported = JSON.parse(jsonData);
+    if (imported.profile) {
+      imported.profile.id = `profile_${Date.now()}`;
+      imported.profile.imported = true;
+      modsData.profiles.push(imported.profile);
+      saveModsData(modsData);
+      return { success: true, profile: imported.profile };
+    }
+    return { success: false, error: 'Invalid profile format' };
+  } catch (error) {
+    return { success: false, error: error.mess

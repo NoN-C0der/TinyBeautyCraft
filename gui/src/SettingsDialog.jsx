@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Box,
@@ -20,7 +20,9 @@ import {
   Slider,
   FormControlLabel,
   Switch,
-  Grid
+  Grid,
+  Alert,
+  InputAdornment
 } from '@mui/material';
 import {
   Settings as SettingsIcon,
@@ -32,19 +34,30 @@ import {
   Add as AddIcon,
   Computer as ComputerIcon,
   Speed as SpeedIcon,
-  Tune as TuneIcon
+  Tune as TuneIcon,
+  Key as KeyIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  Refresh as RefreshIcon,
+  Extension as ExtensionIcon
 } from '@mui/icons-material';
 import { useDispatch, useSelector } from 'react-redux';
 import { updateJavaPath, updateJavaArgs, updateGameDir, addMod, removeMod, addResourcePack, removeResourcePack } from './launcherSlice';
 import { closeSettingsDialog } from './uiSlice';
+import { setCurseForgeApiKey, setApiKeyValidation } from '../../store/modsSlice';
+import * as curseforgeApi from '../../services/curseforgeApi';
 
 export default function SettingsDialog() {
   const dispatch = useDispatch();
   const launcher = useSelector(state => state.launcher);
   const ui = useSelector(state => state.ui);
+  const mods = useSelector(state => state.mods);
   
   const [localJavaArgs, setLocalJavaArgs] = React.useState(launcher.config.javaArgs);
   const [memorySlider, setMemorySlider] = React.useState(2);
+  const [apiKeyInput, setApiKeyInput] = useState(mods.curseForgeApiKey || '');
+  const [apiKeyStatus, setApiKeyStatus] = useState(null); // { type: 'success'|'error', message: string }
+  const [testingKey, setTestingKey] = useState(false);
 
   React.useEffect(() => {
     setLocalJavaArgs(launcher.config.javaArgs);
@@ -97,6 +110,44 @@ export default function SettingsDialog() {
     dispatch(closeSettingsDialog());
   };
 
+  // Handle CurseForge API key
+  const handleApiKeyChange = (e) => {
+    const newKey = e.target.value;
+    setApiKeyInput(newKey);
+    dispatch(setCurseForgeApiKey(newKey));
+    setApiKeyStatus(null);
+  };
+
+  const testApiKey = async () => {
+    if (!apiKeyInput.trim()) return;
+    
+    setTestingKey(true);
+    setApiKeyStatus({ type: 'info', message: 'Testing API key...' });
+    
+    try {
+      const result = await curseforgeApi.validateApiKey(apiKeyInput.trim());
+      
+      dispatch(setApiKeyValidation(result.valid));
+      
+      if (result.valid) {
+        setApiKeyStatus({ type: 'success', message: 'API key is valid! You can now browse and install mods from CurseForge.' });
+      } else {
+        setApiKeyStatus({ type: 'error', message: `Invalid API key: ${result.error}` });
+      }
+    } catch (error) {
+      setApiKeyStatus({ type: 'error', message: `Failed to validate: ${error.message}` });
+    } finally {
+      setTestingKey(false);
+    }
+  };
+
+  const clearApiKey = () => {
+    setApiKeyInput('');
+    dispatch(setCurseForgeApiKey(''));
+    dispatch(setApiKeyValidation(null));
+    setApiKeyStatus(null);
+  };
+
   // Return null if dialog is not open - MUST be after all hooks
   if (!ui.settingsDialogOpen) {
     return null;
@@ -127,6 +178,100 @@ export default function SettingsDialog() {
 
       <DialogContent dividers>
         <Grid container spacing={3}>
+          {/* CurseForge API Key Configuration */}
+          <Grid item xs={12}>
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              <Paper
+                elevation={3}
+                sx={{
+                  p: 3,
+                  mb: 3,
+                  background: ui.theme === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)',
+                  borderRadius: 2,
+                  border: mods.isApiKeyValid === true ? '1px solid #4CAF50' : 
+                            mods.isApiKeyValid === false ? '1px solid #f44336' : 'none'
+                }}
+              >
+                <Typography variant="h6" gutterBottom>
+                  <KeyIcon sx={{ mr: 1, verticalAlign: 'middle', color: '#9C27B0' }} />
+                  CurseForge API Key
+                </Typography>
+                
+                <Stack spacing={2} sx={{ mt: 2 }}>
+                  <Alert severity="info" sx={{ mb: 1 }}>
+                    <Typography variant="body2">
+                      Get your free API key from{' '}
+                      <a href="https://www.curseforge.com/account/api-tokens" target="_blank" rel="noopener noreferrer">
+                        CurseForge Account Settings
+                      </a> to browse and install mods directly from the catalog.
+                    </Typography>
+                  </Alert>
+                  
+                  <TextField
+                    fullWidth
+                    label="API Key"
+                    value={apiKeyInput}
+                    onChange={handleApiKeyChange}
+                    placeholder="Enter your CurseForge API key"
+                    type="password"
+                    variant="outlined"
+                    disabled={testingKey}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <KeyIcon />
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <Stack direction="row" spacing={1}>
+                            {mods.isApiKeyValid === true && (
+                              <CheckCircleIcon color="success" />
+                            )}
+                            {mods.isApiKeyValid === false && (
+                              <ErrorIcon color="error" />
+                            )}
+                            {apiKeyInput.trim() && (
+                              <IconButton
+                                onClick={testApiKey}
+                                size="small"
+                                disabled={testingKey}
+                              >
+                                {testingKey ? <RefreshIcon className="spin" /> : <RefreshIcon />}
+                              </IconButton>
+                            )}
+                            {apiKeyInput.trim() && (
+                              <IconButton onClick={clearApiKey} size="small">
+                                <DeleteIcon />
+                              </IconButton>
+                            )}
+                          </Stack>
+                        </InputAdornment>
+                      )
+                    }}
+                  />
+                  
+                  {apiKeyStatus && (
+                    <Alert 
+                      severity={apiKeyStatus.type}
+                      onClose={() => setApiKeyStatus(null)}
+                    >
+                      {apiKeyStatus.message}
+                    </Alert>
+                  )}
+                  
+                  <Typography variant="caption" color="text.secondary">
+                    Your API key is stored locally and never sent to any server except CurseForge's official API.
+                  </Typography>
+                </Stack>
+              </Paper>
+            </motion.div>
+          </Grid>
+          
           {/* Java Configuration */}
           <Grid item xs={12} md={6}>
             <motion.div

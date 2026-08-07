@@ -36,6 +36,7 @@ import Home from './Home';
 import AccountsDialog from './AccountsDialog';
 import SettingsDialog from './SettingsDialog';
 import ModsDialog from './ModsDialog';
+import Mods from './components/Mods';
 
 // Stats Component with Charts
 function StatsPanel() {
@@ -201,7 +202,7 @@ export default function App() {
 
   const menuItems = [
     { text: 'Home', icon: <HomeIcon />, tab: 'home' },
-    { text: 'Mods', icon: <ExtensionIcon />, tab: 'mods', action: () => dispatch(openModsDialog()) },
+    { text: 'Mods', icon: <ExtensionIcon />, tab: 'mods' },
     { text: 'Statistics', icon: <AssessmentIcon />, tab: 'stats' },
     { text: 'Accounts', icon: <AccountIcon />, tab: 'accounts', action: () => dispatch(openAccountDialog()) },
     { text: 'Settings', icon: <SettingsIcon />, tab: 'settings', action: () => dispatch(openSettingsDialog()) }
@@ -299,6 +300,8 @@ export default function App() {
     switch (ui.activeTab) {
       case 'home':
         return <Home />;
+      case 'mods':
+        return <Mods />;
       case 'stats':
         return <StatsPanel />;
       case 'notifications':
