@@ -29,9 +29,9 @@ jobs:
         with:
           node-version: '20.x'
           cache: 'npm'
-          cache-dependency-path: |
-            gui/package-lock.json
-            package-lock.json
+          #cache-dependency-path: |
+            #gui/package-lock.json
+            #package-lock.json
 
       # Установка зависимостей корневого проекта (если есть)
       - name: Install root dependencies
