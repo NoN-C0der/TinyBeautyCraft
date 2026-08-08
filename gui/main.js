@@ -573,4 +573,24 @@ ipcMain.handle('import-profile', (event, jsonData) => {
     }
     return { success: false, error: 'Invalid profile format' };
   } catch (error) {
-    return { success: false, error: error.mess
+      return { success: false, error: error.message };
+    }
+  }
+});
+
+// App lifecycle
+app.whenReady().then(() => {
+  createWindow();
+});
+
+app.on('window-all-closed', () => {
+  if (process.platform !== 'darwin') {
+    app.quit();
+  }
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
+});
