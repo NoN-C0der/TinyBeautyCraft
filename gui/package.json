@@ -94,10 +94,7 @@
       ],
       "icon": "public/icon.ico",
       "publisherName": "qwq672",
-      "legalTrademarks": "Tiny MC Launcher",
-      "certificateFile": "certificate.pfx",
-      "certificatePassword": "",
-      "verifyUpdateCodeSignature": false
+      "legalTrademarks": "Tiny MC Launcher"
     },
     "portable": {
       "artifactName": "${productName}-Portable-${version}.${ext}"
