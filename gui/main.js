@@ -240,7 +240,7 @@ ipcMain.handle('launch-game', async (event, launchConfig) => {
 
     return { success: true, pid: mcProcess.pid };
   } catch (error) {
-    return { success: false, error: error.message };
+    ;
   }
 });
 
@@ -575,7 +575,6 @@ ipcMain.handle('import-profile', (event, jsonData) => {
   } catch (error) {
       return { success: false, error: error.message };
     }
-  }
 });
 
 // App lifecycle
