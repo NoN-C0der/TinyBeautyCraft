@@ -42,7 +42,7 @@ import {
   Info as InfoIcon,
   Star as StarIcon,
   Category as CategoryIcon,
-  Version as VersionIcon,
+  Flag as VersionIcon,
   Person as PersonIcon,
   Description as DescriptionIcon,
   Image as ImageIcon,
